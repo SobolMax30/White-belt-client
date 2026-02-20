@@ -20,7 +20,7 @@
    <string>Клиент событий</string>
   </property>
   <widget class="QWidget" name="centralwidget">
-   <widget class="QWidget" name="">
+   <widget class="QWidget" name="layoutWidget">
     <property name="geometry">
      <rect>
       <x>270</x>
@@ -112,6 +112,19 @@
       </layout>
      </item>
     </layout>
+   </widget>
+   <widget class="QPushButton" name="pushButton_Sync">
+    <property name="geometry">
+     <rect>
+      <x>50</x>
+      <y>220</y>
+      <width>142</width>
+      <height>23</height>
+     </rect>
+    </property>
+    <property name="text">
+     <string>Синхронизироваться</string>
+    </property>
    </widget>
   </widget>
   <widget class="QMenuBar" name="menubar">

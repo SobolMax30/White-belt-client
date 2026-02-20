@@ -24,15 +24,19 @@ public:
 
 private slots:
     void on_pushButton_Connect_clicked();
-    void on_pushButton_ClearList_clicked();
+    void on_pushButton_ClearList_clicked();   
+    void on_pushButton_Sync_clicked();
     void readDatagram();
+    void sendRequest();
 
 private:
     Ui::MainWindow *ui;
     QMap<QDate, QSet<QString>> _storage;
     QUdpSocket *_udpSocket;
+    QUdpSocket *_syncSocket;
     QHostAddress _multicastAddress;
-    quint16 _multicastPort;
+    quint16 _multicastPort1;
+    quint16 _multicastPort2;
     bool _connected;
 };
 #endif // MAINWINDOW_H

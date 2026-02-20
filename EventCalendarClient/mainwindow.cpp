@@ -4,6 +4,7 @@
 #include <QJsonDocument>
 #include <QJsonObject>
 #include <cstring>
+#include <QTimer>
 
 QString _baseStyle = "border-radius: 10px; border: 1px solid black;";
 
@@ -13,12 +14,14 @@ MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent), ui(new Ui::MainWi
     ui->statusLabel->setStyleSheet(_baseStyle + "background-color: red;");
 
     _udpSocket = new QUdpSocket(this);
+    _syncSocket = new QUdpSocket(this);
     _multicastAddress = QHostAddress("239.255.0.1");
-    _multicastPort = 45454;
+    _multicastPort1 = 45454;
+    _multicastPort2 = 45455;
     _connected = false;
 
     QString addressString = _multicastAddress.toString();
-    QString portString = QString::number(_multicastPort);
+    QString portString = QString::number(_multicastPort1);
 
     ui->treeWidget->setHeaderLabel("Полученные события");
     ui->label_Address->setText("Адрес: " + addressString);
@@ -37,7 +40,7 @@ MainWindow::~MainWindow() {
 void MainWindow::on_pushButton_Connect_clicked()
 {
     if (!_connected) {
-        if (_udpSocket->bind(QHostAddress::AnyIPv4, _multicastPort, QUdpSocket::ShareAddress)) {
+        if (_udpSocket->bind(QHostAddress::AnyIPv4, _multicastPort1, QUdpSocket::ShareAddress)) {
             if (_udpSocket->joinMulticastGroup(_multicastAddress)) {
                 _connected = true;
                 updateStatusIndicator(_connected);
@@ -67,20 +70,19 @@ void MainWindow::on_pushButton_ClearList_clicked()
     updateTotalCount();
 }
 
+void MainWindow::on_pushButton_Sync_clicked()
+{
+    sendRequest();
+}
+
 void MainWindow::readDatagram() {
     while (_udpSocket->hasPendingDatagrams()) {
         QByteArray datagram;
         datagram.resize(_udpSocket->pendingDatagramSize());
         _udpSocket->readDatagram(datagram.data(), datagram.size());
 
-        QJsonDocument doc = QJsonDocument::fromJson(datagram);
-
-        if (!doc.isNull()) {
-            qDebug().noquote() << "Получено: " << doc.toJson(QJsonDocument::Indented);
-        }
-
         QJsonParseError error;
-        doc = QJsonDocument::fromJson(datagram, &error);
+        QJsonDocument doc = QJsonDocument::fromJson(datagram, &error);
 
         if (error.error == QJsonParseError::NoError && doc.isObject()) {
             QJsonObject obj = doc.object();
@@ -90,12 +92,18 @@ void MainWindow::readDatagram() {
 
             if (eventDate.isValid() && !eventText.isEmpty()) {
                 _storage[eventDate].insert(eventText);
-
-                updateTree();
-                updateTotalCount();
             }
         }
     }
+
+    updateTree();
+    updateTotalCount();
+}
+void MainWindow::sendRequest() {
+    QByteArray data = "SYNC_REQUEST";
+    _syncSocket->writeDatagram(data, _multicastAddress, _multicastPort2);
+
+    qDebug() << "Запрос синхронизации отправлен";
 }
 
 void MainWindow::updateTree() {
