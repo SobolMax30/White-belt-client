@@ -1,119 +1,83 @@
 #include "mainwindow.h"
 #include "ui_mainwindow.h"
 
-#include <QJsonDocument>
-#include <QJsonObject>
-#include <cstring>
-#include <QTimer>
-
-QString _baseStyle = "border-radius: 10px; border: 1px solid black;";
+static const QString BASE_STYLE = "border-radius: 10px; border: 1px solid black;";
 
 MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent), ui(new Ui::MainWindow) {
     ui->setupUi(this);
-    ui->statusLabel->setFixedSize(20, 20);
-    ui->statusLabel->setStyleSheet(_baseStyle + "background-color: red;");
 
-    _udpSocket = new QUdpSocket(this);
-    _syncSocket = new QUdpSocket(this);
-    _multicastAddress = QHostAddress("239.255.0.1");
-    _multicastPort1 = 45454;
-    _multicastPort2 = 45455;
+    _storage = new EventStorage(this);
+    _network = new Network(this);
     _connected = false;
 
-    QString addressString = _multicastAddress.toString();
-    QString portString = QString::number(_multicastPort1);
+    setupUI();
 
-    ui->treeWidget->setHeaderLabel("Полученные события");
-    ui->label_Address->setText("Адрес: " + addressString);
-    ui->label_Port->setText("Порт: " + portString);
-    ui->label_Count->setText("Всего событий: 0");
+    connect(_network, &Network::eventReceived, this, &MainWindow::handleEvent);
 }
 
 MainWindow::~MainWindow() {
     if (_connected) {
-        _udpSocket->leaveMulticastGroup(_multicastAddress);
+        _network->stopReceiver();
     }
-
     delete ui;
 }
 
-void MainWindow::on_pushButton_Connect_clicked()
-{
+void MainWindow::setupUI() {
+    ui->statusLabel->setFixedSize(20, 20);
+    ui->statusLabel->setStyleSheet(BASE_STYLE + "background-color: red;");
+    ui->treeWidget->setHeaderLabel("Полученные события");
+    ui->label_Address->setText("Адрес: 239.255.0.1");
+    ui->label_Port->setText("Порт: 45454");
+    updateTotalCount();
+}
+
+void MainWindow::on_pushButton_Connect_clicked() {
     if (!_connected) {
-        if (_udpSocket->bind(QHostAddress::AnyIPv4, _multicastPort1, QUdpSocket::ShareAddress)) {
-            if (_udpSocket->joinMulticastGroup(_multicastAddress)) {
-                _connected = true;
-                updateStatusIndicator(_connected);
-
-                ui->pushButton_Connect->setText("Отключиться");
-
-                connect(_udpSocket, &QUdpSocket::readyRead, this, &MainWindow::readDatagram);
-            }
+        if (_network->startReceiver()) {
+            _connected = true;
+            _network->setEnabled(true);
+            updateStatus(true);
+            ui->pushButton_Connect->setText("Отключиться");
         }
     } else {
-        _udpSocket->leaveMulticastGroup(_multicastAddress);
-        _udpSocket->close();
-
-        disconnect(_udpSocket, &QUdpSocket::readyRead, this, &MainWindow::readDatagram);
+        _network->stopReceiver();
+        _network->setEnabled(false);
         _connected = false;
-        updateStatusIndicator(_connected);
-
+        updateStatus(false);
         ui->pushButton_Connect->setText("Подключиться");
     }
 }
 
-void MainWindow::on_pushButton_ClearList_clicked()
-{
-    _storage.clear();
-
+void MainWindow::on_pushButton_ClearList_clicked() {
+    _storage->clear();
     updateTree();
     updateTotalCount();
 }
 
-void MainWindow::on_pushButton_Sync_clicked()
-{
-    sendRequest();
-}
-
-void MainWindow::readDatagram() {
-    while (_udpSocket->hasPendingDatagrams()) {
-        QByteArray datagram;
-        datagram.resize(_udpSocket->pendingDatagramSize());
-        _udpSocket->readDatagram(datagram.data(), datagram.size());
-
-        QJsonParseError error;
-        QJsonDocument doc = QJsonDocument::fromJson(datagram, &error);
-
-        if (error.error == QJsonParseError::NoError && doc.isObject()) {
-            QJsonObject obj = doc.object();
-
-            QDate eventDate = QDate::fromString(obj["date"].toString(), "yyyy-MM-dd");
-            QString eventText = obj["event"].toString();
-
-            if (eventDate.isValid() && !eventText.isEmpty()) {
-                _storage[eventDate].insert(eventText);
-            }
-        }
+void MainWindow::on_pushButton_Sync_clicked() {
+    if (_connected) {
+        _network->requestSync();
     }
+}
 
+void MainWindow::handleEvent(const QDate &date, const QString &event) {
+    _storage->addEvent(date, event);
     updateTree();
     updateTotalCount();
-}
-void MainWindow::sendRequest() {
-    QByteArray data = "SYNC_REQUEST";
-    _syncSocket->writeDatagram(data, _multicastAddress, _multicastPort2);
-
-    qDebug() << "Запрос синхронизации отправлен";
 }
 
 void MainWindow::updateTree() {
     ui->treeWidget->clear();
 
-    for (auto it = _storage.begin(); it != _storage.end(); ++it) {
-        QTreeWidgetItem *dateItem = new QTreeWidgetItem(ui->treeWidget);
-        dateItem->setText(0, it.key().toString("yyyy-MM-dd"));
+    QMap<QDate, QSet<QString>> allEvents = _storage->getAllEvents();
+    QList<QDate> dates = allEvents.keys();
+    std::sort(dates.begin(), dates.end(), std::greater<QDate>());
 
-        QStringList events = it.value().values();
+    for (const QDate &date : dates) {
+        QTreeWidgetItem *dateItem = new QTreeWidgetItem(ui->treeWidget);
+        dateItem->setText(0, date.toString("yyyy-MM-dd"));
+
+        QStringList events = allEvents[date].values();
         events.sort();
 
         for (const QString &event : events) {
@@ -125,17 +89,10 @@ void MainWindow::updateTree() {
 }
 
 void MainWindow::updateTotalCount() {
-    int total = 0;
-    for (const QSet<QString>& events : _storage) {
-        total += events.size();
-    }
-    ui->label_Count->setText("Всего событий: " + QString::number(total));
+    ui->label_Count->setText("Всего событий: " + QString::number(_storage->totalCount()));
 }
 
-void MainWindow::updateStatusIndicator(bool success) {
-    if (success) {
-        ui->statusLabel->setStyleSheet(_baseStyle + "background-color: green;");
-    } else {
-        ui->statusLabel->setStyleSheet(_baseStyle + "background-color: red;");
-    }
+void MainWindow::updateStatus(bool connected) {
+    QString color = connected ? "green" : "red";
+    ui->statusLabel->setStyleSheet(BASE_STYLE + "background-color: " + color + ";");
 }

@@ -2,10 +2,8 @@
 #define MAINWINDOW_H
 
 #include <QMainWindow>
-#include <QUdpSocket>
-#include <QMap>
-#include <QSet>
-#include <QDate>
+#include "eventstorage.h"
+#include "network.h"
 
 QT_BEGIN_NAMESPACE
 namespace Ui { class MainWindow; }
@@ -18,25 +16,22 @@ public:
     MainWindow(QWidget *parent = nullptr);
     ~MainWindow();
 
-    void updateTree();
-    void updateTotalCount();
-    void updateStatusIndicator(bool success);
-
 private slots:
     void on_pushButton_Connect_clicked();
-    void on_pushButton_ClearList_clicked();   
+    void on_pushButton_ClearList_clicked();
     void on_pushButton_Sync_clicked();
-    void readDatagram();
-    void sendRequest();
+    void handleEvent(const QDate &date, const QString &event);
 
 private:
+    void setupUI();
+    void updateTree();
+    void updateStatus(bool connected);
+    void updateTotalCount();
+
     Ui::MainWindow *ui;
-    QMap<QDate, QSet<QString>> _storage;
-    QUdpSocket *_udpSocket;
-    QUdpSocket *_syncSocket;
-    QHostAddress _multicastAddress;
-    quint16 _multicastPort1;
-    quint16 _multicastPort2;
+    EventStorage *_storage;
+    Network *_network;
     bool _connected;
 };
+
 #endif // MAINWINDOW_H
