@@ -1,15 +1,16 @@
 #ifndef NETWORK_H
 #define NETWORK_H
 
-#include <QObject>
 #include "packetsender.h"
 #include "packetreceiver.h"
+
+#include <QObject>
 
 class Network : public QObject {
     Q_OBJECT
 
 public:
-    Network(QObject *parent = nullptr);
+    explicit Network(QObject *parent = nullptr);
 
     bool startReceiver();
     void stopReceiver();

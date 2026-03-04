@@ -10,7 +10,7 @@ class EventStorage : public QObject {
     Q_OBJECT
 
 public:
-    EventStorage(QObject *parent = nullptr);
+    explicit EventStorage(QObject *parent = nullptr);
 
     void addEvent(const QDate &date, const QString &event);
     QMap<QDate, QSet<QString>> getAllEvents() const;

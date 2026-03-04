@@ -21,5 +21,6 @@ int EventStorage::totalCount() const {
     for (const auto &events : _storage) {
         total += events.size();
     }
+
     return total;
 }

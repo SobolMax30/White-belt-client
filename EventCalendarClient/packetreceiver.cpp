@@ -1,4 +1,5 @@
 #include "packetreceiver.h"
+
 #include <QJsonDocument>
 #include <QJsonObject>
 
@@ -16,7 +17,9 @@ PacketReceiver::~PacketReceiver() {
 }
 
 bool PacketReceiver::start() {
-    if (_active) return true;
+    if (_active) {
+        return true;
+    }
 
     if (_udpSocket->bind(QHostAddress::AnyIPv4, _receivePort, QUdpSocket::ShareAddress)) {
         if (_udpSocket->joinMulticastGroup(_multicastAddress)) {
@@ -25,11 +28,14 @@ bool PacketReceiver::start() {
             return true;
         }
     }
+
     return false;
 }
 
 void PacketReceiver::stop() {
-    if (!_active) return;
+    if (!_active) {
+        return;
+    }
 
     _udpSocket->leaveMulticastGroup(_multicastAddress);
     _udpSocket->close();

@@ -19,6 +19,7 @@ MainWindow::~MainWindow() {
     if (_connected) {
         _network->stopReceiver();
     }
+
     delete ui;
 }
 

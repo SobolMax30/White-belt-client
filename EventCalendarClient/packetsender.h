@@ -9,7 +9,7 @@ class PacketSender : public QObject {
     Q_OBJECT
 
 public:
-    PacketSender(QObject *parent = nullptr);
+    explicit PacketSender(QObject *parent = nullptr);
 
     void sendSyncRequest();
     void setEnabled(bool enabled);

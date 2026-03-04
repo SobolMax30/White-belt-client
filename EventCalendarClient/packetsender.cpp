@@ -1,4 +1,5 @@
 #include "packetsender.h"
+
 #include <QDebug>
 
 PacketSender::PacketSender(QObject *parent) : QObject(parent) {
@@ -9,13 +10,17 @@ PacketSender::PacketSender(QObject *parent) : QObject(parent) {
 }
 
 void PacketSender::sendSyncRequest() {
-    if (!_enabled) return;
+    if (!_enabled) {
+        return;
+    }
 
     QByteArray data = "SYNC_REQUEST";
     qint64 sent = _udpSocket->writeDatagram(data, _multicastAddress, _syncPort);
 
     if (sent != -1) {
         qDebug() << "Sync request sent";
+    } else {
+        qDebug() << "Failed to send sync request:" << _udpSocket->errorString();
     }
 }
 
